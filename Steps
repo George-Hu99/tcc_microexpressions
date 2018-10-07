@@ -1,0 +1,14 @@
+-> Junção de Datasets
+    - Juntar Cropped dos dois datasets.
+-> Normalizar imagens
+    Coloridas
+    - Como as imagens da CASME2 são maiores, então mudei o tamanho das imagens para 131x161
+      (igualando ao HS do SMIC) e mudei o formato para bmp.
+-> Gerar lista de objetos MicroExpression que contenham informações da microexpressão em questão, incluindo
+  a resposta, o chute e dicionário contendo resultados de cada descritor.
+    - Não normalizar a quantidade de imagens existentes em cada microexpressão
+-> Aplicar Descritores de Imagem nos objetos MicroExpression
+-> Aplicar Algoritmos de IA
+-> Comparar resultados
+-> Escrever processo e resultados
+__repita_até_acabar_o_tempo

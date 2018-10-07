@@ -1,0 +1,7 @@
+1) Pode fazer uma junção dos datasets
+    -> Juntar Cropped e RAW
+    -> Fazer Normalização entre eles
+2) Extrair características usando a imagem toda e recortando alguma parte + relevante (rosto)
+3) Aplicar os algoritmos disponíveis no opencv (acho que vc pode fz td em python) e usar o máximo de descritor que tiver por lá rs
+4) Depois usar os algoritmos do scikit-learn para classificar
+5) Fazer comparações
