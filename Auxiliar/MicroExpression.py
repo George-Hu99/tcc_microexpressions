@@ -1,7 +1,11 @@
 from PIL import Image
 import numpy as np
-import cv2 as cv
+import cv2
 import glob
+import matplotlib.pyplot as plt
+
+from skimage.feature import hog
+from skimage import data, exposure
 
 
 class MicroExpression(object):
@@ -10,7 +14,8 @@ class MicroExpression(object):
 
         self.image_list = []
         for filename in glob.glob(self.path):
-            im = cv.imread(filename)
+            #im = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
+            im = np.array(Image.open(filename))
             self.image_list.append(im)
 
         self.qtd_images = len(self.image_list)
@@ -32,7 +37,10 @@ class MicroExpression(object):
                 self.type = "positive"
             elif self.path.find("negative") != -1:
                 self.type = "negative"
-            self.type = "surprise"
+            elif self.path.find("surprise") != -1:
+                self.type = "surprise"
+            else:
+                self.type = "default"
 
         else:
             self.camera = "no_cam"
@@ -40,7 +48,14 @@ class MicroExpression(object):
         #hog = cv.HOGDescriptor()
         #self.hog_array = list(map(lambda x: hog.compute(x), self.image_list))
 
-    def apply_hog(self, hog):
-
-        self.hog_array = list(map(lambda x: hog.compute(x), self.image_list))
+    def apply_hog(self, orientations=8, pixels_per_cell=(16,16), 
+                cells_per_block=(1, 1),visualize=True,multichannel=True):
+        self.hog_array = list(map(lambda x: 
+            hog(x, 
+                orientations=orientations, 
+                pixels_per_cell=pixels_per_cell,
+                cells_per_block=cells_per_block, 
+                visualize=visualize, 
+                multichannel=multichannel
+            )[1], self.image_list))
 

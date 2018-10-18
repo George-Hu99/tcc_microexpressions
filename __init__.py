@@ -1,8 +1,9 @@
-from PreProcess.Auxiliar.MakeDictByDir import MakeDictByDir
-from PreProcess.Auxiliar.MicroExpression import MicroExpression
+from Auxiliar.MakeDictByDir import MakeDictByDir
+from Auxiliar.MicroExpression import MicroExpression
+import numpy as np
 import os
 import pickle
-import cv2 as cv
+import cv2
 
 # Muda o tamanho de várias imagens abaixo de um diretório
 def rescale(dir):
@@ -41,14 +42,19 @@ if __name__ == "__main__":
 
     path_imgs = getImages(dir, list())
 
-    array = 'PreProcess/hog_arrays/{}.txt'
     i = 0
-    hog = cv.HOGDescriptor()
+    hog = cv2.HOGDescriptor()
     for path in path_imgs:
         micro = MicroExpression(path)
         micro.apply_hog(hog)
-        object_to_file(micro, 'PreProcess/hog_arrays/{}.txt'.format(i))
+        #object_to_file((micro.hog_array,micro.type), 'hog_arrays/{}'.format(i))
         i += 1
+
+
+    svm = cv2.ml.SVM_create()
+    svm.setType(cv2.ml.SVM_C_SVC)
+    svm.setKernel(cv2.ml.SVM_RBF)
+    svm.trainAuto(data["encodings"], cv2.ml.ROW_SAMPLE,data["names"])
 
 
 
