@@ -4,6 +4,8 @@ import numpy as np
 import os
 import pickle
 import cv2
+from sklearn.model_selection import train_test_split
+from itertools import *
 
 # Muda o tamanho de várias imagens abaixo de um diretório
 def rescale(dir):
@@ -37,12 +39,14 @@ def file_to_object(filename):
         return pickle.load(fp)
 
 
+
 if __name__ == "__main__":
     dir = '/home/henriquehaji/PycharmProjects/TCC/PreProcess/Datasets/SMIC_all_cropped/'
     path_imgs = getImages(dir, list())
     #hog = cv2.HOGDescriptor(winSize,blockSize,blockStride,cellSize,nbins,
     #derivAperture,winSigma,histogramNormType,L2HysThreshold,gammaCorrection,
     #nlevels, signedGradients)
+    maior = 0
     X = []
     with open('hog_arrays.txt', 'a') as file:
         for i, path in enumerate(path_imgs):
@@ -50,13 +54,19 @@ if __name__ == "__main__":
             micro = MicroExpression(path)
             micro.apply_hog(_PCA=False)
             micro.summarize_hog(1)
+
             #file.write(','.join(map(str,micro.s_hog)) + '\n')
+
             X.append(micro.s_hog)
+
+
+            if len(X[i]) > maior:
+                maior = len(X[i])
             #for j, array in enumerate(micro.hog_array):
                 #file.write(','.join(map(str,micro.hog_array[j])) + '\n')
             #object_to_file((micro.hog_array,micro.type), 'hog_arrays/{}'.format(i))
 
-    
+    zip_longest(X, 0)
 
     y = []
     with open('answers.txt', 'a') as file:
