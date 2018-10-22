@@ -38,23 +38,38 @@ def file_to_object(filename):
 
 
 if __name__ == "__main__":
-    dir = '/home/henriquehaji/PycharmProjects/TCC/PreProcess/Datasets'
-
+    dir = '/home/henriquehaji/PycharmProjects/TCC/PreProcess/Datasets/SMIC_all_cropped/'
     path_imgs = getImages(dir, list())
+    #hog = cv2.HOGDescriptor(winSize,blockSize,blockStride,cellSize,nbins,
+    #derivAperture,winSigma,histogramNormType,L2HysThreshold,gammaCorrection,
+    #nlevels, signedGradients)
+    X = []
+    with open('hog_arrays.txt', 'a') as file:
+        for i, path in enumerate(path_imgs):
+            #print(i)
+            micro = MicroExpression(path)
+            micro.apply_hog(_PCA=False)
+            micro.summarize_hog(1)
+            #file.write(','.join(map(str,micro.s_hog)) + '\n')
+            X.append(micro.s_hog)
+            #for j, array in enumerate(micro.hog_array):
+                #file.write(','.join(map(str,micro.hog_array[j])) + '\n')
+            #object_to_file((micro.hog_array,micro.type), 'hog_arrays/{}'.format(i))
 
-    i = 0
-    hog = cv2.HOGDescriptor()
-    for path in path_imgs:
-        micro = MicroExpression(path)
-        micro.apply_hog(hog)
-        #object_to_file((micro.hog_array,micro.type), 'hog_arrays/{}'.format(i))
-        i += 1
+    
 
+    y = []
+    with open('answers.txt', 'a') as file:
+        for i, path in enumerate(path_imgs):
+            micro = MicroExpression(path)
+            y.append(micro.ans)
+            #file.write(''.join(micro.type) + '\n')
+    trainLabels = np.array(y_train, dtype=int)
 
     svm = cv2.ml.SVM_create()
     svm.setType(cv2.ml.SVM_C_SVC)
     svm.setKernel(cv2.ml.SVM_RBF)
-    svm.trainAuto(data["encodings"], cv2.ml.ROW_SAMPLE,data["names"])
+    svm.train(X_train, cv2.ml.ROW_SAMPLE,np.array(y_train))
 
 
 
