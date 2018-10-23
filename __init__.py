@@ -6,6 +6,10 @@ import pickle
 import cv2
 from sklearn.model_selection import train_test_split
 from itertools import *
+from sklearn.model_selection import cross_val_score
+from sklearn import svm
+from keras.models import Sequential
+from sklearn.ensemble import RandomForestClassifier
 
 # Muda o tamanho de várias imagens abaixo de um diretório
 def rescale(dir):
@@ -38,7 +42,13 @@ def file_to_object(filename):
     with open(filename, "rb") as fp:
         return pickle.load(fp)
 
-
+def make_equal(arrays, tam_max):
+    for i, array in enumerate(arrays):
+        if len(array) < tam_max:
+            array = np.append(array, (tam_max-len(array)) * [0])
+    return arrays
+            
+            
 
 if __name__ == "__main__":
     dir = '/home/henriquehaji/PycharmProjects/TCC/PreProcess/Datasets/SMIC_all_cropped/'
@@ -66,7 +76,9 @@ if __name__ == "__main__":
                 #file.write(','.join(map(str,micro.hog_array[j])) + '\n')
             #object_to_file((micro.hog_array,micro.type), 'hog_arrays/{}'.format(i))
 
-    zip_longest(X, 0)
+    for i, array in enumerate(X):
+        if len(array) < maior:
+            X[i] = np.append(array, (maior-len(array)) * [0])
 
     y = []
     with open('answers.txt', 'a') as file:
@@ -74,7 +86,36 @@ if __name__ == "__main__":
             micro = MicroExpression(path)
             y.append(micro.ans)
             #file.write(''.join(micro.type) + '\n')
-    trainLabels = np.array(y_train, dtype=int)
+    
+    
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+    #SVM
+    clf = svm.SVC(kernel='linear', C=1).fit(X_train, y_train)
+    acertos = sum(clf.predict(X_test) == y_test)
+    scores = cross_val_score(clf, X_test, y_test, cv=50)
+
+    #Random Forest
+    clf = RandomForestClassifier(n_jobs=2, random_state=0).fit(X_train, y_train)
+    acertos = sum(clf.predict(X_test) == y_test)
+    scores = cross_val_score(clf, X_test, y_test, cv=50)
+    
+    #Deep
+    from keras.utils import to_categorical
+    y_binary = to_categorical(y_train)
+
+    model = Sequential()
+
+    model.add(Dense(units=1, activation='relu', input_dim=11520))
+    model.add(Dense(units=4, activation='softmax'))
+    model.compile(loss='categorical_crossentropy',
+                optimizer='sgd',
+                metrics=['accuracy'])
+    model.compile(loss=keras.losses.categorical_crossentropy,
+                optimizer=keras.optimizers.SGD(lr=0.01, momentum=0.9, nesterov=True))
+    model.fit(np.array(X_train), np.array(y_binary), epochs=5, batch_size=32)
+    
+
+    
 
     svm = cv2.ml.SVM_create()
     svm.setType(cv2.ml.SVM_C_SVC)
