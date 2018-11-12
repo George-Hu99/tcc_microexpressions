@@ -2,17 +2,30 @@ import os
 import cv2
 import pickle
 import numpy as np
+import pandas as pd
+from keras.utils import to_categorical
+from keras.layers import Dense
+from keras.layers import Flatten
+import keras
 from itertools import *
 from sklearn import svm
+from sklearn.model_selection import GridSearchCV
 from datetime import datetime as dt
 from sklearn.ensemble import RandomForestClassifier
 #from sklearn.model_selection import Kfold
 from Auxiliar.MakeDictByDir import MakeDictByDir
 from Auxiliar.MicroExpression import MicroExpression
-
-
-
+from Auxiliar.NeutralFace import NeutralFace
 from sklearn.model_selection import train_test_split
+
+def svc_param_selection(X, y, nfolds):
+    Cs = [0.001, 0.01, 0.1, 1, 10]
+    gammas = [0.001, 0.01, 0.1, 1]
+    param_grid = {'C': Cs, 'gamma' : gammas}
+    grid_search = GridSearchCV(svm.SVC(kernel='rbf'), param_grid, cv=nfolds)
+    grid_search.fit(X, y)
+    grid_search.best_params_
+    return grid_search.best_params_
 
 
 # Muda o tamanho de várias imagens abaixo de um diretório
@@ -52,6 +65,43 @@ def make_equal(arrays, tam_max):
             array = np.append(array, (tam_max-len(array)) * [0])
     return arrays
 
+def gen_neutral_files(path_imgs, ans_df):
+    nf = [NeutralFace() for i in range(57)]
+    for i, path in enumerate(path_imgs):
+        micro = MicroExpression(path, df=ans_df)
+        if (path.find('Cropped') > 0):
+            nf[micro.subj-1].add_mat(micro.sum_images)
+            nf[micro.subj-1].len += micro.qtd_images
+        elif (path.find('SMIC_all_cropped/HS') > 0):
+            nf[micro.subj+25].add_mat(micro.sum_images)
+            nf[micro.subj+25].len += micro.qtd_images
+        elif (path.find('SMIC_all_cropped/VIS') > 0):
+            nf[micro.subj+31].add_mat(micro.sum_images)
+            nf[micro.subj+31].len += micro.qtd_images
+        elif (path.find('SMIC_all_cropped/NIR') > 0):
+            nf[micro.subj+39].add_mat(micro.sum_images)
+            nf[micro.subj+39].len += micro.qtd_images
+    for i in range(57):
+        nf[i].gen_neutral()
+        np.savetxt('neutral_faces/' + str(i), nf[i].neutral, fmt='%0.f')
+
+def get_neutral_faces():
+    path = '/home/henriquehaji/tcc_microexpressions/neutral_faces'
+    faces = [0] * 62
+    for filename in os.listdir(path):
+        faces[int(filename)] = np.loadtxt(path + '/' + str(filename))
+    return faces
+
+def get_subj(path, subj):
+    if (path.find('Cropped') > 0):
+        return micro.subj-1
+    elif (path.find('SMIC_all_cropped/HS') > 0):
+        return micro.subj+25
+    elif (path.find('SMIC_all_cropped/VIS') > 0):
+        return micro.subj+45-10
+    elif (path.find('SMIC_all_cropped/NIR') > 0):
+        return micro.subj+53-10
+
 
 if __name__ == "__main__":
     dir_smic = '/home/henriquehaji/PycharmProjects/TCC/PreProcess/Datasets/SMIC_all_cropped/HS'
@@ -59,25 +109,43 @@ if __name__ == "__main__":
     
     path_imgs = getImages(dir_smic, list())
     path_imgs = getImages(dir_norm, path_imgs)
+    neutral_images = get_neutral_faces()
 
+    ans_df = pd.read_csv('CASME2_Ans.csv', ',')
     #hog = cv2.HOGDescriptor(winSize,blockSize,blockStride,cellSize,nbins,
     #derivAperture,winSigma,histogramNormType,L2HysThreshold,gammaCorrection,
     #nlevels, signedGradients)
+    
     X = []
     with open('hog_arrays.txt', 'a') as file:
         for i, path in enumerate(path_imgs):
-            micro = MicroExpression(path)
-            micro.apply_hog(_PCA=False)
+            micro = MicroExpression(path, df=ans_df)
+            micro.mean_images(neutral_images[get_subj(micro.path, micro.subj)])
+            micro.apply_hog(mean=1)
             micro.summarize_hog(1)
             #X = np.append(X, micro.s_hog)
             X.append(micro.s_hog)
-
-    X = np.array(X)
-    y = np.array([])
+    np.savetxt('mean_hog_sum.txt', X, fmt='%.4f')
+    X = np.loadtxt('mean_hog_sum.txt')
+    y_bool = np.array([])
+    y_smic = np.array([])
+    #y_casme = np.array([])
+    for i, path in enumerate(path_imgs):
+        micro = MicroExpression(path, ans_df)
+        #y_casme = np.append(y_casme, micro.ans_casme)
+        #y_bool = np.append(y_bool, micro.ans_bool) 
+        y_smic = np.append(y_smic, micro.ans_smic) 
     with open('answers_bool.txt', 'a') as file:
         for i, path in enumerate(path_imgs):
+            micro = MicroExpression(path, ans_df)
+            y_bool = np.append(y_bool, micro.ans_bool)
+    with open('answers_smic.txt', 'a') as file:
+        for i, path in enumerate(path_imgs):
             micro = MicroExpression(path)
-            y = np.append(y, micro.ans_bool) 
+    with open('answers_casme.txt', 'a') as file:
+        for i, path in enumerate(path_imgs):
+            micro = MicroExpression(path)
+            y_casme = np.append(y_casme, micro.ans_casme)
     
     #kf = sklearn.model_selection.KFold(30, shuffle=True)
     '''
@@ -106,13 +174,13 @@ if __name__ == "__main__":
     score_rf4 = np.array([])
 
     for i in range(100):
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1)
+        X_train, X_test, y_train, y_test = train_test_split(X, y_smic, test_size=0.1)
         #SVM Linear
-        clf_svm_l = svm.SVC(kernel='linear', C=1).fit(X_train, y_train)
+        clf_svm_l = svm.SVC(kernel='linear', C=0.001, gamma=0.001).fit(X_train, y_train)
         score_svm_l = np.append(score_svm_l, sum(clf_svm_l.predict(X_test) == y_test))
 
         #SVM RBF
-        clf_svm_rbf = svm.SVC(kernel='rbf', C=1, gamma='scale').fit(X_train, y_train)
+        clf_svm_rbf = svm.SVC(kernel='rbf', C=0.001, gamma=0.001).fit(X_train, y_train)
         score_svm_rbf = np.append(score_svm_rbf, sum(clf_svm_rbf.predict(X_test) == y_test))
 
         #Random Forest
@@ -167,27 +235,25 @@ if __name__ == "__main__":
     print(t_end - t_start)
     
     #Deep
-    from keras.utils import to_categorical
-    from keras.layers import Dense
-    from keras.layers import Flatten
-    import keras
+
     #y_binary = to_categorical(y_train)
 
     model = keras.Sequential()
-
+    adadelta = keras.optimizers.Adadelta(lr=1.0, rho=0.95, epsilon=None, decay=0.0)
+    sgd = keras.optimizers.SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
     model.add(Dense(1, input_dim=5544))
-    model.add(Dense(2772, activation='relu'))
-    model.add(Dense(1386, activation='softplus'))
-    model.add(Dense(693, activation='softsign'))
-    model.add(Dense(346, activation='tanh'))
+    model.add(Dense(2774, activation='tanh'))
+    #model.add(Dense(1386, activation='softplus'))
+    #model.add(Dense(693, activation='softsign'))
+    #model.add(Dense(346, activation='tanh'))
     model.add(Dense(1, activation='softmax'))
     model.compile(loss='binary_crossentropy',
-                optimizer='rmsprop',
-                metrics=['accuracy'])
+                optimizer=sgd,
+                metrics=['binary_accuracy'])
     #model.compile(loss=keras.losses.sparse_categorical_crossentropy,
     #            optimizer=keras.optimizers.SGD(lr=0.01, momentum=0.9, nesterov=True))
-    model.fit(X_train4, np.array(y_train4), epochs=5, batch_size=32)
-    test_loss, test_acc = model.evaluate(X_test4, y_test4)
+    model.fit(X_train, np.array(y_train), epochs=5, batch_size=64)
+    test_loss, test_acc = model.evaluate(X_test, y_test)
     print('Test accuracy:', test_acc)
 
 

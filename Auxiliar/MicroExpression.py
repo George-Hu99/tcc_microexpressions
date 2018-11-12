@@ -14,7 +14,7 @@ from skimage import data, exposure
 from sklearn.decomposition import PCA
 
 class MicroExpression(object):
-    def __init__(self, path, w=120, h=150):
+    def __init__(self, path, df, w=120, h=150):
         CASME_ans = {
             'happiness' : 0, 
             'disgust' : 1, 
@@ -48,19 +48,25 @@ class MicroExpression(object):
             im = Image.open('{path}/{filename}'.format(path=path, filename=filename))
             im = im.resize((w,h), Image.ANTIALIAS)
             im = np.array(im.convert('L'))
-            self.image_list.append(im)
+            self.image_list.append(im.astype('float'))
             self.filename.append(filename)
 
         self.qtd_images = len(self.image_list)
 
         self.dataset = "SMIC_all_cropped" if self.path.find("SMIC_all_cropped") != -1 else "Cropped"
+        
+        self.sum_images = (np.asarray([[[0] for i in range(120)] for j in range(150)]).reshape(150,120)).astype('float')
+        for i in range(len(self.image_list)):
+            self.sum_images += self.image_list[i]
 
         if self.dataset == "SMIC_all_cropped":
-            if self.path.find("HS") != -1:
-                self.camera = "HS"
-            elif self.path.find("VIS") != -1:
-                self.camera = "VIS"
-            self.camera = "NIR"
+            self.subj = int(path.split('/')[9][1:])
+            if self.path.find('HS') != -1:
+                self.camera = 'HS'
+            elif self.path.find('VIS') != -1:
+                self.camera = 'VIS'
+            elif self.path.find('NIR') != -1:
+                self.camera = 'NIR'
 
             if self.path.find("micro") != -1:
                 self.micro = 'micro'
@@ -80,36 +86,44 @@ class MicroExpression(object):
                 self.ans_bool = 0
 
             self.ans_smic = SMIC_ans[self.type]
+            self.ans_casme = "other"
         
         else:
             self.camera = "HS"
             self.micro = 'micro'
 
-            sub = self.path[self.path.find('sub')+3 : self.path.find('sub')+5]
-            ans_df = pd.read_csv('CASME2_Ans.csv', ',')
+            self.subj = int(self.path[self.path.find('sub')+3 : self.path.find('sub')+5])
+            self.df = df
             name = self.path[self.path.find('EP') : len(self.path)]
-            data = ans_df[(ans_df.Subject == int(sub)) & (ans_df.Filename == name)]
+            data = self.df[(self.df.Subject == self.subj) & (self.df.Filename == name)]
             self.type = data.EstimatedEmotion.values[0]
         
             self.ans_smic = CASME_to_SMIC[self.type]
             self.ans_casme = CASME_ans[self.type]
-            if self.type == 'others':
-                self.ans_bool = 0
-            else:
-                self.ans_bool = 1
+            self.ans_bool = 1
 
-    def apply_hog(self, orientations=9, pixels_per_cell=(10, 10),
+    def mean_images(self, matrix):
+        self.mean_images = self.image_list - matrix
+
+    def apply_hog(self, orientations=9 , mean=0, pixels_per_cell=(10, 10),
 	cells_per_block=(2, 2), transform_sqrt=True, block_norm="L1",
 	visualize=False, _PCA=False, pca_lvl=.95):      
-
-        self.hog_array = list(map(lambda x: 
-            hog(x, 
-                orientations=orientations, 
-                pixels_per_cell=pixels_per_cell,
-                cells_per_block=cells_per_block, 
-                visualize=False
-            ), self.image_list))
-        
+        if mean == 0:
+            self.hog_array = list(map(lambda x: 
+                hog(x, 
+                    orientations=orientations, 
+                    pixels_per_cell=pixels_per_cell,
+                    cells_per_block=cells_per_block, 
+                    visualize=False
+                ), self.image_list))
+        else:
+            self.hog_array = list(map(lambda x: 
+                hog(x, 
+                    orientations=orientations, 
+                    pixels_per_cell=pixels_per_cell,
+                    cells_per_block=cells_per_block, 
+                    visualize=False
+                ), self.mean_images))
         if _PCA == True:
             pca = PCA(pca_lvl)
             for index,hog_image in enumerate(self.hog_array):
@@ -120,5 +134,3 @@ class MicroExpression(object):
         if way == 1:
             self.s_hog = reduce(operator.add, self.hog_array)
             self.s_hog = np.divide(self.s_hog, self.qtd_images)
-            
-        
