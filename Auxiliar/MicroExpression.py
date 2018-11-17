@@ -7,7 +7,7 @@ import cv2
 import glob
 import matplotlib.pyplot as plt
 import pandas as pd 
-
+from skimage.feature import local_binary_pattern
 from skimage.feature import hog
 from skimage import data, exposure
 
@@ -54,7 +54,7 @@ class MicroExpression(object):
         self.qtd_images = len(self.image_list)
 
         self.dataset = "SMIC_all_cropped" if self.path.find("SMIC_all_cropped") != -1 else "Cropped"
-        
+        self.image = sum(self.image_list)/len(self.image_list)
         self.sum_images = (np.asarray([[[0] for i in range(120)] for j in range(150)]).reshape(150,120)).astype('float')
         for i in range(len(self.image_list)):
             self.sum_images += self.image_list[i]
@@ -102,8 +102,8 @@ class MicroExpression(object):
             self.ans_casme = CASME_ans[self.type]
             self.ans_bool = 1
 
-    def mean_images(self, matrix):
-        self.mean_images = self.image_list - matrix
+    def apply_image(self, matrix):
+        self.result_image = abs(self.image - matrix)
 
     def apply_hog(self, orientations=9 , mean=0, pixels_per_cell=(10, 10),
 	cells_per_block=(2, 2), transform_sqrt=True, block_norm="L1",
@@ -117,19 +117,23 @@ class MicroExpression(object):
                     visualize=False
                 ), self.image_list))
         else:
-            self.hog_array = list(map(lambda x: 
-                hog(x, 
+            self.hog_array = hog(self.result_image, 
                     orientations=orientations, 
                     pixels_per_cell=pixels_per_cell,
                     cells_per_block=cells_per_block, 
                     visualize=False
-                ), self.mean_images))
+                )
         if _PCA == True:
             pca = PCA(pca_lvl)
             for index,hog_image in enumerate(self.hog_array):
                 pca.fit(hog_image)
                 self.hog_array[index] = pca.transform(hog_image)
     
+    def apply_lbp(self):
+        self.lbp = (local_binary_pattern(self.result_image, 10, 3, method='uniform')).flatten()
+    def apply_reg(self):
+        self.reg_image = (self.result_image).flatten()
+
     def summarize_hog(self, way=1):
         if way == 1:
             self.s_hog = reduce(operator.add, self.hog_array)
