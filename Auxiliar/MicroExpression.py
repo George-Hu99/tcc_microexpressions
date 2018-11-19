@@ -7,6 +7,7 @@ import cv2
 import glob
 import matplotlib.pyplot as plt
 import pandas as pd 
+from sklearn import decomposition
 from skimage.feature import local_binary_pattern
 from skimage.feature import hog
 from skimage import data, exposure
@@ -123,12 +124,10 @@ class MicroExpression(object):
                     cells_per_block=cells_per_block, 
                     visualize=False
                 )
-        if _PCA == True:
-            pca = PCA(pca_lvl)
-            for index,hog_image in enumerate(self.hog_array):
-                pca.fit(hog_image)
-                self.hog_array[index] = pca.transform(hog_image)
-    
+            
+    def apply_pca(self):
+        pca = decomposition.PCA(n_components=1)
+        self.pca_array = pca.fit_transform(self.result_image)
     def apply_lbp(self):
         self.lbp = (local_binary_pattern(self.result_image, 10, 3, method='uniform')).flatten()
     def apply_reg(self):

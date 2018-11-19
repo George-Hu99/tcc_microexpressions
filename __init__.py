@@ -180,6 +180,7 @@ if __name__ == "__main__":
     #nlevels, signedGradients)
     
     X_hog = []
+    X_pca = []
     X_image = []
     X_lbp = []
     X_reg = []
@@ -187,7 +188,9 @@ if __name__ == "__main__":
     for i, path in enumerate(path_imgs):
         micro = MicroExpression(path, ans_df)
         micro.apply_image(neutral_images[get_subj(micro.path, micro.subj)])
-        X_tensor.append(micro.result_image)
+        micro.apply_pca()
+        X_pca.append(micro.pca_array)
+        #X_tensor.append(micro.result_image)
         #micro.apply_hog(mean=1)
         #micro.apply_lbp()
         #micro.apply_reg()
@@ -201,10 +204,12 @@ if __name__ == "__main__":
     np.savetxt('mean_hog.txt', X_hog, fmt='%.4f')
     np.savetxt('mean_lbp.txt', X_lbp, fmt='%.4f')
     np.savetxt('mean_reg.txt', X_reg, fmt='%.4f')
+    np.savetxt('mean_pca.txt', X_pca, fmt='%.4f')
 
     X_hog = np.loadtxt('mean_hog.txt')
     X_lbp = np.loadtxt('mean_lbp.txt')
     X_hog = np.loadtxt('mean_reg.txt')
+    X_pca = np.loadtxt('mean_pca.txt')
 
     y_bool = np.loadtxt('ans_bool.txt')
     y_smic = np.loadtxt('ans_smic.txt')
@@ -237,7 +242,7 @@ if __name__ == "__main__":
     score = np.array([])
     kick =  np.array([])
     y_score = np.array([])
-    X = np.asarray(X_hog)
+    X = np.asarray(X_pca)
     for i in range(100):
         kf = KFold(n_splits=10, shuffle=True)
         for train_index, test_index in kf.split(X):
@@ -247,7 +252,6 @@ if __name__ == "__main__":
             #y_score = np.vstack((y_score, classifier.decision_function(X[test_index]))) if len(y_score) != 0 else classifier.decision_function(X[test_index])
             y_score = np.vstack((y_score, classifier.predict_proba(X[test_index]))) if len(y_score) != 0 else classifier.predict_proba(X[test_index])
             #y_score = np.append(y_score, classifier.predict_proba(X[test_index]))
-
             y_pred = np.append(y_pred, classifier.predict(X[test_index]))
             y_ans = np.append(y_ans, y_smic[test_index])
             Y_test = np.append(Y_test, y_smic[test_index])
@@ -258,10 +262,10 @@ if __name__ == "__main__":
             SVM-Linear - 79,08% Fotos: x
             Naive - 72,25% Fotos: x
             RF - 73,14% Fotos: x
-        SIFT
-            SVM
-            Naive
-            RF
+        PCA
+            SVM - 73,29%
+            Naive - 67,61%
+            RF - 73,22%
         Vazio
             DNN 69,17%/Loss 61,76% (1|40 min) - 70,54%/Loss 49.75% (2|15 min) - 80,13%/Loss 1,32% (3|5 min com 20 epocas) 89% com 100 Epocas
     SMIC
@@ -269,10 +273,10 @@ if __name__ == "__main__":
             SVM-Linear - 53.47%
             Naive - 45.82%
             RF - 53,32%
-        SIFT
-            SVM
-            Naive
-            RF
+        PCA
+            SVM 45,77%
+            Naive 29,05%
+            RF 45,62%
         Vazio
             DNN 56%
 '''
