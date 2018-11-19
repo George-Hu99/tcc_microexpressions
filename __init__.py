@@ -23,57 +23,31 @@ from Auxiliar.MakeDictByDir import MakeDictByDir
 from Auxiliar.MicroExpression import MicroExpression
 from Auxiliar.NeutralFace import NeutralFace
 from sklearn.model_selection import train_test_split
+from sklearn.utils import shuffle
 
 from keras.models import Sequential
 from keras.layers import Dense, Conv2D, MaxPooling2D, Dropout, Flatten
  
 def createModel(input_shape, nClasses):
     model = Sequential()
-    '''
-    model.add(Conv2D(150, (3, 3), padding='same', activation='relu', input_shape=input_shape))
-    model.add(Conv2D(150, (3, 3), activation='relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Dropout(0.25))
- 
-    model.add(Conv2D(300, (3, 3), padding='same', activation='relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Dropout(0.25))
- 
-    model.add(Conv2D(300, (3, 3), padding='same', activation='relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Dropout(0.25))
- 
-    model.add(Flatten())
-    model.add(Dense(100, activation='relu'))
-    model.add(Dropout(0.5))
-    model.add(Dense(nClasses, activation='softmax'))
-    Config2
     
-    model.add(Conv2D(18000, (3, 3), padding='same', activation='relu', input_shape=input_shape))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Dropout(0.25))
-    model.add(Flatten())
-    model.add(Dense(100, activation='relu'))
-    model.add(Dropout(0.5))
-    model.add(Dense(nClasses, activation='softmax'))
-    '''
     model.add(Conv2D(32, (3, 3), input_shape=input_shape))
-    model.add(Activation('relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-
-    model.add(Conv2D(32, (3, 3)))
     model.add(Activation('relu'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
 
     model.add(Conv2D(64, (3, 3)))
     model.add(Activation('relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+
+    model.add(Conv2D(32, (3, 3)))
+    model.add(Activation('relu'))
     model.add(MaxPooling2D(pool_size=(2, 2))) 
     model.add(Flatten())  # this converts our 3D feature maps to 1D feature vectors
-    model.add(Dense(64))
+    model.add(Dense(32))
     model.add(Activation('relu'))
     model.add(Dropout(0.5))
     model.add(Dense(nClasses))
-    model.add(Activation('sigmoid'))
+    model.add(Activation('softmax'))
     return model
 
 
@@ -243,19 +217,32 @@ if __name__ == "__main__":
     kick =  np.array([])
     y_score = np.array([])
     X = np.asarray(X_pca)
+
+    X_shuffle, y_shuffle = shuffle(X, y_smic, random_state=0)
+
+    X_lou = X_shuffle[0:58, :]
+    y_lou = y_shuffle[0:58]
+    
+    X_tt = X_shuffle[58:, :]
+    y_tt = y_shuffle[58:]
+
+    
+    classifier = svm.SVC(kernel='linear', C=1, gamma=1)
     for i in range(100):
         kf = KFold(n_splits=10, shuffle=True)
-        for train_index, test_index in kf.split(X):
-            #classifier = svm.SVC(kernel='linear', C=1, gamma=1).fit(X[train_index], y_smic[train_index])
-            classifier = RandomForestClassifier(n_jobs=3, n_estimators=100).fit(X[train_index], y_smic[train_index])
+        for train_index, test_index in kf.split(X_tt):
+            classifier.fit(X_tt[train_index], y_tt[train_index])
+            #classifier = RandomForestClassifier(n_jobs=3, n_estimators=100).fit(X[train_index], y_smic[train_index])
             #classifier = GaussianNB().fit(X[train_index], y_smic[train_index])
             #y_score = np.vstack((y_score, classifier.decision_function(X[test_index]))) if len(y_score) != 0 else classifier.decision_function(X[test_index])
-            y_score = np.vstack((y_score, classifier.predict_proba(X[test_index]))) if len(y_score) != 0 else classifier.predict_proba(X[test_index])
+            #y_score = np.vstack((y_score, classifier.predict_proba(X[test_index]))) if len(y_score) != 0 else classifier.predict_proba(X[test_index])
             #y_score = np.append(y_score, classifier.predict_proba(X[test_index]))
-            y_pred = np.append(y_pred, classifier.predict(X[test_index]))
-            y_ans = np.append(y_ans, y_smic[test_index])
-            Y_test = np.append(Y_test, y_smic[test_index])
-            score = np.append(score, (sum(classifier.predict(X[test_index]) == y_smic[test_index]))/58)
+            score = np.append(score, (sum(classifier.predict(X[test_index]) == y_tt[test_index])))
+        
+        y_pred = np.append(y_pred, classifier.predict(X[test_index]))
+        y_ans = np.append(y_ans, y_smic[test_index])
+        Y_test = np.append(Y_test, y_smic[test_index])
+        
 '''
     Binário
         Hog
@@ -287,7 +274,7 @@ if __name__ == "__main__":
     test_loss_arr = []
     test_acc_arr = []
 
-    X_shuffle, y_shuffle = shuffle(X_tensor, y_bool_c, random_state=0)
+    X_shuffle, y_shuffle = shuffle(X_tensor, y_smic_c, random_state=0)
 
     X_tensor_lou = X_shuffle[0:58, :, :, :]
     X_tensor_tt = X_shuffle[58:, :, :, :]
@@ -297,9 +284,9 @@ if __name__ == "__main__":
 
     kf = KFold(n_splits=10, shuffle=True)
     input_shape = (150, 120, 1)
-    nClasses = 2
+    nClasses = 4
     model = createModel(input_shape, nClasses)
-    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
     for train_index, test_index in kf.split(X_tensor_tt):
         #classifier = svm.SVC(kernel='linear', C=1, gamma=1).fit(X[train_index], y_smic[train_index])
         history = model.fit(X_tensor_tt[train_index], y_smic_tt[train_index], epochs=10, batch_size=16)
@@ -307,8 +294,16 @@ if __name__ == "__main__":
         total_hist['loss'].append(history.history['loss'])
 
         test_loss, test_acc = model.evaluate(X_tensor_tt[test_index], y_smic_tt[test_index])
+
         test_loss_arr.append(test_loss)
         test_acc_arr.append(test_acc)
+    
+    test_loss, test_acc = model.evaluate(X_tensor_lou, y_smic_lou)
+    test_loss_arr.append(test_loss)
+    test_acc_arr.append(test_acc)
+
+    y_pred = (model.predict_classes(X_tensor_lou, verbose=1))
+    y_ans = np.argmax(y_smic_lou, axis=1)
 
     
     t_end = dt.now()
